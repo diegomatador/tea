@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Contract Deployer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.6.1/web3.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #102119;
+    }
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding-top: 10px;
+      background-color: #102119;
+      color: #98ff99;
+    }
+    .logo-title {
+      display: flex;
+      align-items: center;
+      gap: 5px; /* уменьшить/увеличить расстояние между изображением и текстом */
+    }
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .right-buttons {
+      padding-right: 10px;
+      display: flex;
+      gap: 7px; /* расстояние между кнопками */
+    }
+
+    .connect-button {
+      cursor: pointer;
+      background-color: #4CAF50;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .connect-button:hover {
+      background-color: #45a049;
+    }
+
+    #faucet-button {
+      padding: 10px;
+      background-color: #4CAF50;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #faucet-button:hover {
+      background-color: #45a049;
+    }
+    #deploy-info {
+      color: #98ff99;
+      margin: 0;
+      text-align: center;
+    }
+    #deploy-info h2 {
+      font-size: 2em;
+    }
+    #deploy-info p {
+      font-size: 1.2em;
+    }
+    #deploy-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    #deploy-buttons button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      border: none;
+      color: #98ff99;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #deploy-buttons button:hover {
+      background-color: #45a049;
+    }
+    #inputFields {
+      color: #98ff99;
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+    #inputFields input {
+      padding: 10px;
+      margin: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+    #twitter-icon {
+      margin-top: 70px;
+      cursor: pointer;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="header">
+      <div class="logo-title">
+          <img src="static/images/plx.webp" width="110" height="80" />
+          <div class="title">Deployer</div>
+      </div>
+      <div class="right-buttons">
+        <div id="faucet-button">
+          <a href="https://faucet-sepolia.tea.xyz/" target="_blank" style="color: #98ff99; text-decoration: none;">Faucet</a>
+        </div>
+        <div id="walletSection" style="display: flex; gap: 10px; align-items: center;">
+          <div class="connect-button" id="connectWalletBtn">Connect Wallet</div>
+        </div>
+      </div>
+  </div>
+
+
+  <div id="deploy-info">
+      <img src="static/images/home.webp" width="300" height="150">
+    <h2>Deploy Your Smart Contracts</h2>
+    <p>Contracts Deployed: <span id="contractsDeployed">0</span></p>
+    <p>You Deployed: <span id="deployedCount">0</span></p>
+  </div>
+
+  <div id="deploy-buttons">
+    <button id="deploySimpleContractBtn">Simple Contract Deploy</button>
+    <button id="deployTokenBtn">Token Deploy</button>
+    <button id="deployNFTBtn">NFT Deploy</button>
+  </div>
+
+  <div id="inputFields">
+    <!-- Token Inputs -->
+    <div id="tokenInputs" style="display: none;">
+      <h3>Enter Token Details</h3>
+      <input type="text" id="tokenName" placeholder="Token Name" />
+      <input type="text" id="tokenSymbol" placeholder="Token Symbol" />
+      <input type="number" id="tokenSupply" placeholder="Token Supply" />
+      <button onclick="deployToken()"  style="cursor: pointer; background-color: #4CAF50; padding: 10px; border-radius: 10px;">Deploy Token</button>
+    </div>
+
+    <!-- NFT Inputs -->
+    <div id="nftInputs" style="display: none;">
+      <h3>Enter NFT Details</h3>
+      <input type="text" id="nftName" placeholder="NFT Name" />
+      <input type="text" id="nftDescription" placeholder="NFT Description" />
+      <input type="text" id="nftURI" placeholder="NFT URL" />
+      <button onclick="deployNFT()" style="cursor: pointer; background-color: #4CAF50; padding: 10px; border-radius: 10px;">Deploy NFT</button>
+    </div>
+  </div>
+
+  <div id="twitter-icon">
+    <a href="https://x.com/Ploxoy__08" target="_blank">
+      <img src="static/images/x.webp" width="50">
+    </a>
+  </div>
+
+  <script>
+    let web3;
+    let userAccount;
+    let contract;
+    const contractAddress = "0x3bD39716D8E9666BE7E5B6FF347478b88257a2B8";
+    const contractABI = [
+	{
+		"inputs": [],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "nftAddress",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "creator",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "tokenId",
+				"type": "uint256"
+			}
+		],
+		"name": "NFTCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "contractAddress",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "creator",
+				"type": "address"
+			}
+		],
+		"name": "SimpleContractCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "tokenAddress",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "creator",
+				"type": "address"
+			}
+		],
+		"name": "TokenCreated",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "createSimpleContract",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "deployCounts",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "symbol",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "tokenURI",
+				"type": "string"
+			}
+		],
+		"name": "deployNFT",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "symbol",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "supply",
+				"type": "uint256"
+			}
+		],
+		"name": "deployToken",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getDeployCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getTotalDeploys",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "totalDeploys",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+];
+
+    const alchemyApiUrl = "https://tea-sepolia.g.alchemy.com/public";  // Замените на ваш ключ API Alchemy
+
+    document.getElementById("connectWalletBtn").onclick = async function() {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        userAccount = accounts[0];
+        contract = new web3.eth.Contract(contractABI, contractAddress);
+
+        // Выводим информацию о кошельке
+        document.getElementById("walletSection").innerHTML = `
+          <div class="connect-button" id="walletDisplay" title="Click to copy" style="background-color: #3c9142;">
+            Connected: ${shortenAddress(userAccount)}
+          </div>
+          <div class="connect-button" id="disconnectBtn" style="background-color: #f44336;">
+            Disconnect
+          </div>
+        `;
+
+        document.getElementById("walletDisplay").onclick = () => {
+          navigator.clipboard.writeText(userAccount);
+          alert("Wallet address copied!");
+        };
+
+        document.getElementById("disconnectBtn").onclick = () => {
+          userAccount = null;
+          location.reload();
+          document.getElementById("walletSection").innerHTML = `
+            <div class="connect-button" id="connectWalletBtn">Connect Wallet</div>
+          `;
+          document.getElementById("connectWalletBtn").onclick = connectWallet;
+        };
+        function shortenAddress(addr) {
+          return addr.slice(0, 6) + '...' + addr.slice(-4);
+        }
+        document.getElementById("deployedCount").innerText = await getDeployCount(userAccount);
+        alert("Wallet connected: " + userAccount);
+        updateDeployCount();
+      } else {
+        alert("Please install Wallet!");
+      }
+    };
+
+    async function getDeployCount(userAddress) {
+      try {
+        const deployCount = await contract.methods.getDeployCount(userAddress).call();
+        return deployCount;
+      } catch (err) {
+        console.error("Error fetching deploy count:", err);
+        return 0;
+      }
+    }
+
+    async function updateDeployCount() {
+      try {
+        const deployCount = await contract.methods.getTotalDeploys().call();
+        document.getElementById("contractsDeployed").innerText = deployCount;
+      } catch (err) {
+        console.error("Error fetching deploy count:", err);
+      }
+    }
+
+    document.getElementById("deploySimpleContractBtn").onclick = async function() {
+        if (!userAccount) {
+        alert("Connect Wallet pls");
+        return;
+       }
+      try {
+        const result = await contract.methods.createSimpleContract().send({ from: userAccount });
+        alert("Simple contract deployed: " + result.events.SimpleContractCreated.returnValues.contractAddress);
+        updateDeployCount();
+        document.getElementById("deployedCount").innerText = await getDeployCount(userAccount);
+      } catch (err) {
+        console.error("Error deploying simple contract:", err);
+      }
+    };
+
+    document.getElementById("deployTokenBtn").onclick = function() {
+      if (!userAccount) {
+        alert("Connect Wallet pls");
+        return;
+       }
+      document.getElementById("tokenInputs").style.display = "block";
+      document.getElementById("nftInputs").style.display = "none";
+      document.getElementById("inputFields").style.display = "block";
+    };
+
+    document.getElementById("deployNFTBtn").onclick = function() {
+      if (!userAccount) {
+        alert("Connect Wallet pls");
+        return;
+       }
+      document.getElementById("nftInputs").style.display = "block";
+      document.getElementById("tokenInputs").style.display = "none";
+      document.getElementById("inputFields").style.display = "block";
+    };
+
+    async function deployToken() {
+       if (!userAccount) {
+        alert("Connect Wallet pls");
+        return;
+       }
+      const name = document.getElementById("tokenName").value;
+      const symbol = document.getElementById("tokenSymbol").value;
+      const supply = document.getElementById("tokenSupply").value;
+      if (!name || !symbol || !supply) {
+        alert("Please fill in all fields before deploying.");
+        document.getElementById("tokenInputs").style.display = "block";
+        return;
+      }
+      try {
+        const result = await contract.methods.deployToken(name, symbol, supply).send({ from: userAccount });
+        alert("Token deployed: " + result.events.TokenCreated.returnValues.tokenAddress);
+        updateDeployCount();
+        document.getElementById("deployedCount").innerText = await getDeployCount(userAccount);
+        document.getElementById("tokenInputs").style.display = "none";
+      } catch (err) {
+        console.error("Error deploying token:", err);
+      }
+    }
+
+    async function deployNFT() {
+       if (!userAccount) {
+        alert("Connect Wallet pls");
+        return;
+      }
+      const name = document.getElementById("nftName").value;
+      const description = document.getElementById("nftDescription").value;
+      const tokenURI = document.getElementById("nftURI").value;
+      if (!name || !description || !tokenURI) {
+        alert("Please fill in all fields before deploying.");
+        document.getElementById("nftInputs").style.display = "block";
+        return;
+      }
+      try {
+        const result = await contract.methods.deployNFT(name, description, tokenURI).send({ from: userAccount });
+        alert("NFT deployed: " + result.events.NFTCreated.returnValues.nftAddress);
+        updateDeployCount();
+        document.getElementById("deployedCount").innerText = await getDeployCount(userAccount);
+        document.getElementById("nftInputs").style.display = "none";
+      } catch (err) {
+        console.error("Error deploying NFT:", err);
+      }
+    }
+  </script>
+</body>
+</html>
